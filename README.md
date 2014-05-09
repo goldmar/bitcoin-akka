@@ -1,9 +1,11 @@
 bitcoin-akka
 ============
 
+bitcoin-akka demonstrates the processing of bitcoin transactions using the Actor model.  It is written in Scala, and is based on the [akka](http://akka.io) library, [btcd](https://github.com/conformal/btcd), and [btcwallet](https://github.com/conformal/btcwallet).
+
 Usually, it's inconvenient to use websocket or json APIs directly.  bitcoin-akka is an abstraction to btcwallet's websocket API.  You can talk to bitcoin-akka using Actor messages and receive Futures in return.  Those messages are then forwarded to btcwallet using its websocket API.  When a response is available the Future is completed.
 
-bitcoin-akka demonstrates the processing of bitcoin transactions using the Actor model.  It is written in Scala, and is based on the [akka](http://akka.io) library, [btcd](https://github.com/conformal/btcd), and [btcwallet](https://github.com/conformal/btcwallet).  The project contains an example in which transactions are processed by sending the bitcoins back to the sender address.  The outputs of the incoming transaction are used as outputs for the corresponding outgoing transaction. Therefore, there is no need to wait for confirmations.
+The project contains an example in which transactions are processed by sending the bitcoins back to the sender address.  The outputs of the incoming transactions are used as outputs for the corresponding outgoing transactions. Therefore, there is no need to wait for confirmations.
 
 License
 -------
