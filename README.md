@@ -22,6 +22,5 @@ Usage
 * Clone this repository: `git clone https://github.com/goldmar/bitcoin-akka.git`.
 * Configure your passwords in src/main/resources/application.conf.
 * Import your btcwallet certificate to keystore.jks: `keytool -keystore.jks -import -file ~/.btcwallet/rpc.cert -alias btcwallet.cert`.
-* Change `watchedAddresses` in src/main/scala/example/BtcWalletActorImpl.scala to include the addresses in your btcwallet.
 * Run the project: `sbt run`.
 * Send some testnet coins to one of your addresses, and watch how they are automatically returned to the sender address.

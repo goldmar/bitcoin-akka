@@ -42,9 +42,6 @@ import JsonImplicits._
 import akka.util.Timeout
 
 abstract class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: String, walletPass: String, keyStoreFile: String, keyStorePass: String) extends Actor with ActorLogging {
-  // sequence of watched addresses in our wallet
-  val watchedAddresses: Seq[String]
-
   // we put the actual business logic for notification handling here
   def handleNotification: PartialFunction[NotificationMessage, Unit]
 
@@ -113,7 +110,7 @@ abstract class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: St
     case m @ ProcessMissedTransactionsRequest =>
       log.debug("Actor Request\n{}", m.treeString)
       val resultFunc = (result: JsValue) => Json.fromJson[Seq[UnspentTransaction]](result).get
-      request(JsonMessage.listUnspentTransactionsRequest(minConfirmations = 0, addresses = watchedAddresses), resultFunc)
+      request(JsonMessage.listUnspentTransactionsRequest(minConfirmations = 0), resultFunc)
     case m @ NewAddressRequest =>
       log.debug("Actor Request\n{}", m.treeString)
       val resultFunc = (result: JsValue) => result.as[String]
@@ -135,8 +132,7 @@ abstract class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: St
     // handle a new transaction notification: call processTransaction
     case JsonNotification(_, "newtx", params) =>
       Json.fromJson[TransactionNotification](params(1)).map(txNtfn =>
-        // if the receiving address is one of the watched addresses
-        if (watchedAddresses.contains(txNtfn.address) && txNtfn.category == "receive")
+        if (txNtfn.category == "receive")
           processTransaction(txNtfn.txid, txNtfn.address, txNtfn.amount))
     case _ => // ignore
   }
@@ -174,8 +170,7 @@ abstract class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: St
   def processMissedTransactions() {
     self.ask(ProcessMissedTransactionsRequest).mapTo[Seq[UnspentTransaction]].foreach(unspentTransactions =>
       unspentTransactions.foreach(tx =>
-        if (watchedAddresses.contains(tx.address))
-          processTransaction(tx.txid, tx.address, tx.amount)
+        processTransaction(tx.txid, tx.address, tx.amount)
       ))
   }
 

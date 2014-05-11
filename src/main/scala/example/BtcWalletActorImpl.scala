@@ -41,8 +41,6 @@ object BtcWalletActorImpl {
 class BtcWalletActorImpl(websocketUri: String, rpcUser: String, rpcPass: String, walletPass: String, keyStoreFile: String, keyStorePass: String)
   extends BtcWalletActor(websocketUri, rpcUser, rpcPass, walletPass, keyStoreFile, keyStorePass) {
 
-  val watchedAddresses = Seq("n1KWwWXRPPvJbFa1Bpwc46WU27Ku4XT6M8", "mwftPxUGPhb94sM47LgXN8F5GR5Ujd2Xf3")
-
   override def handleNotification = {
     case ReceivedPaymentNotification(txId, vOuts, senderAddress, amount) =>
       val inputs = for (out <- vOuts) yield txId -> out
