@@ -7,11 +7,6 @@ Usually, it's inconvenient to use websocket or json APIs directly.  bitcoin-akka
 
 The project contains an example in which transactions are processed by sending the bitcoins back to the sender address.  The outputs of the incoming transactions are used as outputs for the corresponding outgoing transactions. Therefore, there is no need to wait for confirmations.
 
-License
--------
-
-This project is licensed under the terms of the GPL v2 license.
-
 Usage
 -----
 
@@ -24,3 +19,8 @@ Usage
 * Import your btcwallet certificate to keystore.jks: `keytool -keystore.jks -import -file ~/.btcwallet/rpc.cert -alias btcwallet.cert`.
 * Run the project: `sbt run`.
 * Send some testnet coins to one of your addresses, and watch how they are automatically returned to the sender address.
+
+License
+-------
+
+This project is licensed under the terms of the GPL v2 license.  The project is in ALPHA status, usage in a production environment is strongly discouraged.
