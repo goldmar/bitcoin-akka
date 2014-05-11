@@ -53,7 +53,7 @@ class SendBackBtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: Str
     case _ => // ignore
   }
 
-  // process the transaction the bitcoins back
+  // process the transaction by sending the bitcoins back
   def processTransaction(txId: String, address: String, amount: BigDecimal) {
     for {
     // request the relevant raw transaction
