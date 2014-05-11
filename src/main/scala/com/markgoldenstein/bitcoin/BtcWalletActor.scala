@@ -43,10 +43,10 @@ import akka.util.Timeout
 
 abstract class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: String, walletPass: String, keyStoreFile: String, keyStorePass: String) extends Actor with ActorLogging {
   // we put the actual business logic for notification handling here
-  def handleNotification: PartialFunction[NotificationMessage, Unit]
+  def handleMessage: Actor.Receive
 
-  // we put the actual business logic for request handling here
-  def handleRequest: PartialFunction[RequestMessage, Unit]
+  // this handler is triggered on a successful connection to btcwallet
+  def onConnect(): Unit
 
   implicit val executionContext = context.dispatcher
   implicit val timeout = Timeout(5 seconds)
@@ -62,7 +62,7 @@ abstract class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: St
   def connecting: Actor.Receive = {
     case Connected =>
       context.become(active)
-      processMissedTransactions()
+      onConnect()
     case ReceiveTimeout => tryToConnect()
     case _: RequestMessage => log.info("Cannot process request: no connection to btcwallet.")
     case _ => // ignore
@@ -86,46 +86,43 @@ abstract class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: St
         }
       })
 
-    case m: NotificationMessage =>
-      log.debug("Actor Notification\n{}", m.treeString)
-      handleNotification.applyOrElse(m, unhandled)
-
-    case m @ CreateRawTransactionRequest(inputs, receivers) =>
+    case m@CreateRawTransactionRequest(inputs, receivers) =>
       log.debug("Actor Request\n{}", m.treeString)
       val resultFunc = (result: JsValue) => result.as[String]
       request(JsonMessage.createRawTransactionRequest(inputs, receivers), resultFunc)
-    case m @ SignRawTransactionRequest(transaction) =>
+    case m@SignRawTransactionRequest(transaction) =>
       log.debug("Actor Request\n{}", m.treeString)
       request(JsonMessage.walletPassPhraseRequest(walletPass))
       val resultFunc = (result: JsValue) => Json.fromJson[SignedTransaction](result).get
       request(JsonMessage.signRawTransactionRequest(transaction), resultFunc)
-    case m @ SendRawTransactionRequest(signedTransaction) =>
+    case m@SendRawTransactionRequest(signedTransaction) =>
       log.debug("Actor Request\n{}", m.treeString)
       val resultFunc = (result: JsValue) => result.as[String]
       request(JsonMessage.sendRawTransactionRequest(signedTransaction), resultFunc)
-    case m @ GetRawTransactionRequest(transactionHash) =>
+    case m@GetRawTransactionRequest(transactionHash) =>
       log.debug("Actor Request\n{}", m.treeString)
       val resultFunc = (result: JsValue) => Json.fromJson[GetRawTransactionResponse](result).get
       request(JsonMessage.getRawTransactionRequest(transactionHash), resultFunc)
-    case m @ ProcessMissedTransactionsRequest =>
+    case m@GetUnspentTransactionsRequest =>
       log.debug("Actor Request\n{}", m.treeString)
       val resultFunc = (result: JsValue) => Json.fromJson[Seq[UnspentTransaction]](result).get
       request(JsonMessage.listUnspentTransactionsRequest(minConfirmations = 0), resultFunc)
-    case m @ NewAddressRequest =>
+    case m@CreateNewAddressRequest =>
       log.debug("Actor Request\n{}", m.treeString)
       val resultFunc = (result: JsValue) => result.as[String]
       request(JsonMessage.newAddressRequest, resultFunc)
-
-    case requestMessage: RequestMessage =>
-      log.debug("Actor Request\n{}", requestMessage.treeString)
-      handleRequest.applyOrElse(requestMessage, unhandled)
 
     case RemoveRequest(id) => rpcRequests -= id
     case Disconnected =>
       log.info("Connection to btcwallet closed.")
       context.become(connecting)
       tryToConnect()
-    case _ => // ignore
+
+    case m: NotificationMessage =>
+      log.debug("Actor Notification\n{}", m.treeString)
+      handleMessage.applyOrElse(m, unhandled)
+
+    case m => handleMessage.applyOrElse(m, unhandled)
   }
 
   def handleJsonNotification: PartialFunction[JsonNotification, Unit] = {
@@ -133,8 +130,32 @@ abstract class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: St
     case JsonNotification(_, "newtx", params) =>
       Json.fromJson[TransactionNotification](params(1)).map(txNtfn =>
         if (txNtfn.category == "receive")
-          processTransaction(txNtfn.txid, txNtfn.address, txNtfn.amount))
+          self ! ReceivedPaymentNotification(txNtfn.txid, txNtfn.address, txNtfn.amount, txNtfn.confirmations))
     case _ => // ignore
+  }
+
+  // helper method for request handling, to be called from handleRequest
+  // this variant is for commands without a response
+  def request(request: JsonRequest) {
+    log.info("Json Request\n{}", Json.prettyPrint(Json.toJson(request)))
+    btcWalletClient.send(Json.toJson(request).toString())
+  }
+
+  // helper method for request handling, to be called from handleRequest
+  // this variant is for commands with a response
+  def request(request: JsonRequest, resultFunc: JsValue => AnyRef) {
+    log.info("Json Request\n{}", Json.prettyPrint(Json.toJson(request)))
+    val p = Promise[AnyRef]()
+    val f = p.future
+    rpcRequests += request.id ->(p, resultFunc)
+    btcWalletClient.send(Json.toJson(request).toString())
+
+    context.system.scheduler.scheduleOnce(5 seconds) {
+      p tryFailure new TimeoutException("Timeout: btcwallet did not respond in time.")
+      self ! RemoveRequest(request.id)
+    }
+
+    pipe(f) to sender
   }
 
   // initialize SSL stuff - we need this to open a btcwallet connection
@@ -166,65 +187,6 @@ abstract class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: St
     }
   }
 
-  // checks watched addresses for unspent transactions and creates unspent transaction notifications accordingly
-  def processMissedTransactions() {
-    self.ask(ProcessMissedTransactionsRequest).mapTo[Seq[UnspentTransaction]].foreach(unspentTransactions =>
-      unspentTransactions.foreach(tx =>
-        processTransaction(tx.txid, tx.address, tx.amount)
-      ))
-  }
-
-  // create a ReceivedPaymentNotification
-  def processTransaction(txid: String, address: String, amount: BigDecimal) {
-    for {
-      // request the relevant raw transaction
-      tx <- self.ask(GetRawTransactionRequest(txid)).mapTo[GetRawTransactionResponse]
-      // request the previous transaction for the first input
-      prevTx <- self.ask(GetRawTransactionRequest(tx.vin(0).txid)).mapTo[GetRawTransactionResponse]
-    } yield {
-      // get the sender address
-      val senderAddress = prevTx.vout(tx.vin(0).vout).scriptPubKey.addresses(0)
-      // get a list of outputs that send something to the given address
-      val listOfTxOuts =
-        for (txOut <- tx.vout
-             if (txOut.scriptPubKey.`type` == "pubkeyhash"
-               && address == txOut.scriptPubKey.addresses(0))
-        ) yield txOut
-      val calculatedAmount = listOfTxOuts.map(_.value).sum
-      if (amount != calculatedAmount) {
-        // should not happen
-        log.error("Error while processing transaction [{}]. Calculated sum of outputs from previous transaction [{}] does not match given amount [{}].",
-          txid, calculatedAmount, amount)
-      } else {
-        self ! ReceivedPaymentNotification(tx.txid, listOfTxOuts.map(_.n), senderAddress, calculatedAmount)
-      }
-    }
-  }
-
-  // helper method for request handling, to be called from handleRequest
-  // this variant is for commands without a response
-  def request(request: JsonRequest) {
-    log.info("Json Request\n{}", Json.prettyPrint(Json.toJson(request)))
-    btcWalletClient.send(Json.toJson(request).toString())
-  }
-
-  // helper method for request handling, to be called from handleRequest
-  // this variant is for commands with a response
-  def request(request: JsonRequest, resultFunc: JsValue => AnyRef) {
-    log.info("Json Request\n{}", Json.prettyPrint(Json.toJson(request)))
-    val p = Promise[AnyRef]()
-    val f = p.future
-    rpcRequests += request.id ->(p, resultFunc)
-    btcWalletClient.send(Json.toJson(request).toString())
-
-    context.system.scheduler.scheduleOnce(5 seconds) {
-      p tryFailure new TimeoutException("Timeout: btcwallet did not respond in time.")
-      self ! RemoveRequest(request.id)
-    }
-
-    pipe(f) to sender
-  }
-
   class WebSocketBtcWalletClient(serverUri: URI, protocolDraft: Draft, httpHeaders: Map[String, String], connectTimeout: Int)
     extends WebSocketClient(serverUri, protocolDraft, httpHeaders, connectTimeout) {
     override def onMessage(jsonMessage: String): Unit = {
@@ -247,4 +209,5 @@ abstract class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: St
 
     override def onError(ex: Exception) {}
   }
+
 }

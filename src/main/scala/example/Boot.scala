@@ -24,5 +24,5 @@ object Boot extends App {
   implicit val system = ActorSystem("BitcoinSystem")
 
   // create and start our service actor
-  val btcWallet = system.actorOf(BtcWalletActorImpl.props, "btcwallet")
+  val btcWallet = system.actorOf(SendBackBtcWalletActor.props, "btcwallet")
 }

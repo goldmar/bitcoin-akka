@@ -17,7 +17,7 @@
 
 package com.markgoldenstein.bitcoin.messages.actor
 
-import com.markgoldenstein.bitcoin.messages.json.JsonResponse
+import com.markgoldenstein.bitcoin.messages.json.{UnspentTransaction, JsonResponse}
 
 
 trait ActorMessage
@@ -25,7 +25,9 @@ trait ActorMessage
 
 trait NotificationMessage extends ActorMessage
 
-case class ReceivedPaymentNotification(txId: String, vOuts: Seq[BigDecimal], senderAddress: String, amount: BigDecimal) extends NotificationMessage
+case class ReceivedPaymentNotification(txId: String, address: String, amount: BigDecimal, confirmations: BigDecimal) extends NotificationMessage
+
+case class ReceivedPaymentNotificationOld(txId: String, vOuts: Seq[BigDecimal], senderAddress: String, amount: BigDecimal) extends NotificationMessage
 
 
 trait RequestMessage extends ActorMessage
@@ -38,9 +40,9 @@ case class SendRawTransactionRequest(signedTransaction: String) extends RequestM
 
 case class GetRawTransactionRequest(transactionHash: String) extends RequestMessage
 
-case object ProcessMissedTransactionsRequest extends RequestMessage
+case object GetUnspentTransactionsRequest extends RequestMessage
 
-case object NewAddressRequest extends RequestMessage
+case object CreateNewAddressRequest extends RequestMessage
 
 
 trait ResponseMessage extends ActorMessage
