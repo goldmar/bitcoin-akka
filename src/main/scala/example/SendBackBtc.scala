@@ -20,12 +20,10 @@ import scala.language.postfixOps
 import scala.language.implicitConversions
 import scala.concurrent.duration._
 import com.typesafe.config.ConfigFactory
-import akka.actor.{Actor, ActorSystem, Props}
-import akka.pattern.ask
+import akka.actor._
 import akka.util.Timeout
-import com.markgoldenstein.bitcoin.messages.actor._
-import com.markgoldenstein.bitcoin.messages.json._
-import com.markgoldenstein.bitcoin.BtcWalletActor
+import com.markgoldenstein.bitcoin.{BtcWallet, BtcWalletImpl}
+import com.markgoldenstein.bitcoin.messages.actor.ReceivedPayment
 
 object SendBackBtc extends App {
   implicit val timeout = Timeout(5 seconds)
@@ -42,15 +40,23 @@ object SendBackBtc extends App {
   val walletPass: String = config.getString("wallet-pass")
   val keyStoreFile: String = config.getString("keystore-file")
   val keyStorePass: String = config.getString("keystore-pass")
-  val props = Props(new BtcWalletActor(websocketUri, rpcUser, rpcPass, keyStoreFile, keyStorePass, onConnect, handleNotification, timeout.duration))
 
   // create and start our actor
-  val btcWallet = system.actorOf(props, "btcwallet")
+  val btcWallet: BtcWallet =
+    TypedActor(system).typedActorOf(
+      TypedProps(
+        classOf[BtcWallet],
+        new BtcWalletImpl(
+          websocketUri, rpcUser, rpcPass, keyStoreFile, keyStorePass, onConnect, handleNotification, timeout.duration
+        )), "btcwallet")
 
   def onConnect() {
     // ask about unspent transactions and process them
-    btcWallet.ask(ListUnspentTransactions(minConfirmations = 0)).mapTo[Seq[UnspentTransaction]]
-      .foreach(_.map(tx => processTransaction(tx.txid, tx.address, tx.amount)))
+    btcWallet.listUnspentTransactions(minConfirmations = 0) onSuccess {
+      case listOfUnspentTransactions =>
+        for (tx <- listOfUnspentTransactions)
+          processTransaction(tx.txid, tx.address, tx.amount)
+    }
   }
 
   def handleNotification: Actor.Receive = {
@@ -63,28 +69,26 @@ object SendBackBtc extends App {
   def processTransaction(txId: String, address: String, amount: BigDecimal) {
     for {
     // request the relevant raw transaction
-      tx <- btcWallet.ask(GetRawTransaction(txId)).mapTo[RawTransaction]
+      tx <- btcWallet.getRawTransaction(txId)
       // request the previous transaction for the first input (to get the sender address)
-      prevTx <- btcWallet.ask(GetRawTransaction(tx.vin(0).txid)).mapTo[RawTransaction]
+      prevTx <- btcWallet.getRawTransaction(tx.vin(0).txid)
     } yield {
       // get the sender address
       val senderAddress = prevTx.vout(tx.vin(0).vout).scriptPubKey.addresses(0)
       // get a list of outputs that send something to the given address
       val listOfTxOuts =
         for (txOut <- tx.vout
-             if (txOut.scriptPubKey.`type` == "pubkeyhash"
-               && address == txOut.scriptPubKey.addresses(0))
+             if (txOut.scriptPubKey.`type` == "pubkeyhash" && address == txOut.scriptPubKey.addresses(0))
         ) yield txOut
 
       // send it back (using the correct outputs)
       val inputs = for (out <- listOfTxOuts.map(_.n)) yield txId -> out
-      btcWallet.ask(CreateRawTransaction(inputs, Seq(senderAddress -> amount))).mapTo[String].flatMap(tx => {
-        btcWallet ! WalletPassPhrase(walletPass, timeout.duration.toSeconds)
-        btcWallet.ask(SignRawTransaction(tx)).mapTo[SignedTransaction]
-      }).foreach(tx =>
-        if (tx.complete) {
-          btcWallet ! SendRawTransaction(tx.hex)
-        })
+      btcWallet.createRawTransaction(inputs, Seq(senderAddress -> amount)) flatMap { tx =>
+        btcWallet.walletPassPhrase(walletPass, timeout.duration.toSeconds)
+        btcWallet.signRawTransaction(tx)
+      } onSuccess {
+        case tx if (tx.complete) => btcWallet.sendRawTransaction(tx.hex)
+      }
     }
   }
 }

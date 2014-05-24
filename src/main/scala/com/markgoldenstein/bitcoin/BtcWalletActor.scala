@@ -42,7 +42,7 @@ import JsonImplicits._
 class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: String,
                      keyStoreFile: String, keyStorePass: String,
                      onConnect: () => Unit, handleNotification: Actor.Receive,
-                     timeout: FiniteDuration) extends Actor with ActorLogging {
+                     timeoutDuration: FiniteDuration) extends Actor with ActorLogging {
 
   implicit val executionContext = context.dispatcher
 
@@ -180,7 +180,7 @@ class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: String,
       self ! Connected
     } else {
       log.info(s"Btcwallet not available: $websocketUri")
-      context.system.scheduler.scheduleOnce(timeout, self, ReceiveTimeout)
+      context.system.scheduler.scheduleOnce(timeoutDuration, self, ReceiveTimeout)
     }
   }
 
