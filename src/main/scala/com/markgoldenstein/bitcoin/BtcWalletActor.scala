@@ -29,7 +29,7 @@ import java.net.URI
 import java.security.KeyStore
 import java.io.{FileInputStream, File}
 import javax.net.ssl.{SSLContext, TrustManagerFactory}
-import akka.actor.{Actor, ActorLogging, ReceiveTimeout}
+import akka.actor.{Actor, ActorLogging, ReceiveTimeout, Status}
 import akka.pattern.pipe
 import play.api.libs.json._
 import org.java_websocket.client.WebSocketClient
@@ -60,7 +60,9 @@ class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: String,
       onConnect()
     case ReceiveTimeout => tryToConnect()
     case _: RequestMessage =>
-      log.info("Cannot process request: no connection to btcwallet.")
+      val message = "Cannot process request: no connection to btcwallet."
+      sender ! Status.Failure(new IllegalStateException(message))
+      log.error(message)
   }
 
   // connection established, handle requests
