@@ -22,12 +22,12 @@ import com.markgoldenstein.bitcoin.messages.json.{UnspentTransaction, JsonRespon
 trait ActorMessage
 
 
-trait NotificationMessage extends ActorMessage
+sealed trait NotificationMessage extends ActorMessage
 
 case class ReceivedPayment(txId: String, address: String, amount: BigDecimal, confirmations: BigDecimal) extends NotificationMessage
 
 
-trait RequestMessage extends ActorMessage
+sealed trait RequestMessage extends ActorMessage
 
 case class CreateRawTransaction(inputs: Seq[(String, BigDecimal)], receivers: Seq[(String, BigDecimal)]) extends RequestMessage
 
@@ -42,9 +42,6 @@ case class SendRawTransaction(signedTransaction: String) extends RequestMessage
 case class SignRawTransaction(transaction: String) extends RequestMessage
 
 case class WalletPassPhrase(walletPass: String, timeout: BigDecimal) extends RequestMessage
-
-
-trait ResponseMessage extends ActorMessage
 
 
 case class CompleteRequest(response: JsonResponse)

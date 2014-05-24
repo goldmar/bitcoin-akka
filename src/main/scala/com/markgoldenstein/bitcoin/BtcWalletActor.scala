@@ -83,33 +83,37 @@ class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: String,
         }
       })
 
-    case m@WalletPassPhrase(walletPass, timeout) =>
-      // do not log wallet pass
-      log.debug("Actor Request\n{}", m.copy(walletPass = "hidden").treeString)
-      request(JsonMessage.walletPassPhrase(walletPass, timeout))
-
     case m: RequestMessage =>
-      log.debug("Actor Request\n{}", m.treeString)
       m match {
-      case m@CreateRawTransaction(inputs, receivers) =>
-        val resultFunc = (result: JsValue) => result.as[String]
-        request(JsonMessage.createRawTransaction(inputs, receivers), resultFunc)
-      case m@GetNewAddress =>
-        val resultFunc = (result: JsValue) => result.as[String]
-        request(JsonMessage.getNewAddress, resultFunc)
-      case m@GetRawTransaction(transactionHash) =>
-        val resultFunc = (result: JsValue) => Json.fromJson[RawTransaction](result).get
-        request(JsonMessage.getRawTransaction(transactionHash), resultFunc)
-      case m@ListUnspentTransactions(minConfirmations, maxConfirmations) =>
-        val resultFunc = (result: JsValue) => Json.fromJson[Seq[UnspentTransaction]](result).get
-        request(JsonMessage.listUnspentTransactions(minConfirmations, maxConfirmations), resultFunc)
-      case m@SendRawTransaction(signedTransaction) =>
-        val resultFunc = (result: JsValue) => result.as[String]
-        request(JsonMessage.sendRawTransaction(signedTransaction), resultFunc)
-      case m@SignRawTransaction(transaction) =>
-        val resultFunc = (result: JsValue) => Json.fromJson[SignedTransaction](result).get
-        request(JsonMessage.signRawTransaction(transaction), resultFunc)
-    }
+        case m: WalletPassPhrase =>
+          // do not log wallet pass
+          log.debug("Actor Request\n{}", m.copy(walletPass = "hidden").treeString)
+        case _ =>
+          log.debug("Actor Request\n{}", m.treeString)
+      }
+
+      m match {
+        case CreateRawTransaction(inputs, receivers) =>
+          val resultFunc = (result: JsValue) => result.as[String]
+          request(JsonMessage.createRawTransaction(inputs, receivers), resultFunc)
+        case GetNewAddress =>
+          val resultFunc = (result: JsValue) => result.as[String]
+          request(JsonMessage.getNewAddress, resultFunc)
+        case GetRawTransaction(transactionHash) =>
+          val resultFunc = (result: JsValue) => Json.fromJson[RawTransaction](result).get
+          request(JsonMessage.getRawTransaction(transactionHash), resultFunc)
+        case ListUnspentTransactions(minConfirmations, maxConfirmations) =>
+          val resultFunc = (result: JsValue) => Json.fromJson[Seq[UnspentTransaction]](result).get
+          request(JsonMessage.listUnspentTransactions(minConfirmations, maxConfirmations), resultFunc)
+        case SendRawTransaction(signedTransaction) =>
+          val resultFunc = (result: JsValue) => result.as[String]
+          request(JsonMessage.sendRawTransaction(signedTransaction), resultFunc)
+        case SignRawTransaction(transaction) =>
+          val resultFunc = (result: JsValue) => Json.fromJson[SignedTransaction](result).get
+          request(JsonMessage.signRawTransaction(transaction), resultFunc)
+        case WalletPassPhrase(walletPass, timeout) =>
+          request(JsonMessage.walletPassPhrase(walletPass, timeout))
+      }
 
     case RemoveRequest(id) => rpcRequests -= id
     case Disconnected =>

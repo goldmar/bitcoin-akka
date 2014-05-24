@@ -22,7 +22,7 @@ import com.markgoldenstein.bitcoin.messages.json._
 case class TransactionNotification(txid: String, account: String, address: String, category: String, amount: BigDecimal, confirmations: BigDecimal, timereceived: BigDecimal)
 
 
-case class RawTransaction(hex: String, txid: String, version: BigDecimal, locktime: BigDecimal, vin: Seq[VIn], vout: Seq[VOut]) extends ResponseMessage
+case class RawTransaction(hex: String, txid: String, version: BigDecimal, locktime: BigDecimal, vin: Seq[VIn], vout: Seq[VOut])
 
 case class VIn(txid: String, vout: Int, scriptSig: ScriptSig, sequence: BigDecimal)
 

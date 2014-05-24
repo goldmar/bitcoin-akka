@@ -50,7 +50,7 @@ object JsonMessage {
     JsonRequest("1.0", Utils.getUUID, "walletpassphrase", Json.arr(walletPass, timeout))
 }
 
-trait JsonMessage
+sealed trait JsonMessage
 
 case class JsonNotification(jsonrpc: String, method: String, params: JsArray) extends JsonMessage
 

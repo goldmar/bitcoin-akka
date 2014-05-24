@@ -62,7 +62,6 @@ object SendBackBtc extends App {
   def handleNotification: Actor.Receive = {
     case ReceivedPayment(txId, address, amount, confirmations) =>
       processTransaction(txId, address, amount)
-    case _ => // ignore
   }
 
   // process the transaction by sending the bitcoins back
