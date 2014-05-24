@@ -59,8 +59,8 @@ class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: String,
       context.become(active)
       onConnect()
     case ReceiveTimeout => tryToConnect()
-    case _: RequestMessage => log.info("Cannot process request: no connection to btcwallet.")
-    case _ => // ignore
+    case _: RequestMessage =>
+      log.info("Cannot process request: no connection to btcwallet.")
   }
 
   // connection established, handle requests
@@ -81,8 +81,8 @@ class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: String,
         }
       })
 
-    // do not log wallet pass
     case m@WalletPassPhrase(walletPass, timeout) =>
+      // do not log wallet pass
       log.debug("Actor Request\n{}", m.copy(walletPass = "hidden").treeString)
       request(JsonMessage.walletPassPhrase(walletPass, timeout))
 
@@ -118,8 +118,6 @@ class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: String,
     case m: NotificationMessage =>
       log.debug("Actor Notification\n{}", m.treeString)
       handleNotification.applyOrElse(m, unhandled)
-
-    case m => handleNotification.applyOrElse(m, unhandled)
   }
 
   def handleJsonNotification: PartialFunction[JsonNotification, Unit] = {
@@ -142,6 +140,7 @@ class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: String,
   // this variant is for commands with a response
   def request(request: JsonRequest, resultFunc: JsValue => AnyRef) {
     if (request.method == "walletpassphrase") {
+      // do not log wallet pass
       log.info("Json Request\n{}", Json.prettyPrint(Json.toJson(request.copy(params = Json.arr("hidden")))))
     } else {
       log.info("Json Request\n{}", Json.prettyPrint(Json.toJson(request)))
