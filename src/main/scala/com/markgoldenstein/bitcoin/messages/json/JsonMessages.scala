@@ -1,18 +1,17 @@
 /*
- * This file is part of bitcoin-akka.  bitcoin-akka is free software: you can
- * redistribute it and/or modify it under the terms of the GNU General Public
- * License as published by the Free Software Foundation, version 2.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
- * details.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc., 51
- * Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
- *
  * Copyright 2014 Mark Goldenstein
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.markgoldenstein.bitcoin.messages.json
@@ -20,35 +19,35 @@ package com.markgoldenstein.bitcoin.messages.json
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import scala.language.implicitConversions
-import com.markgoldenstein.bitcoin.messages.UUIDGenerator
+import com.markgoldenstein.bitcoin.messages.Utils
 
 object JsonMessage {
-  def listUnspentTransactionsRequest(minConfirmations: BigDecimal = 1, maxConfirmations: BigDecimal = 999999, addresses: Seq[String] = Seq.empty[String]) = {
-    val params =
-      if (addresses.isEmpty) Json.arr(minConfirmations, maxConfirmations)
-      else Json.arr(minConfirmations, maxConfirmations, addresses)
-    JsonRequest("1.0", UUIDGenerator.get, "listunspent", params)
-  }
-
-  def createRawTransactionRequest(inputs: Seq[(String, BigDecimal)], receivers: Seq[(String, BigDecimal)]) =
-    JsonRequest("1.0", UUIDGenerator.get, "createrawtransaction", Json.arr(
+  def createRawTransaction(inputs: Seq[(String, BigDecimal)], receivers: Seq[(String, BigDecimal)]) =
+    JsonRequest("1.0", Utils.getUUID, "createrawtransaction", Json.arr(
       inputs.map(i => Json.obj("txid" -> i._1, "vout" -> i._2)),
       JsObject(receivers.map(r => r._1 -> Json.toJson(r._2)))))
 
-  def signRawTransactionRequest(transaction: String) =
-    JsonRequest("1.0", UUIDGenerator.get, "signrawtransaction", Json.arr(transaction))
+  def getNewAddress =
+    JsonRequest("1.0", Utils.getUUID, "getnewaddress", Json.arr())
 
-  def sendRawTransactionRequest(signedTransaction: String) =
-    JsonRequest("1.0", UUIDGenerator.get, "sendrawtransaction", Json.arr(signedTransaction))
+  def getRawTransaction(transactionHash: String) =
+    JsonRequest("1.0", Utils.getUUID, "getrawtransaction", Json.arr(transactionHash, 1))
 
-  def getRawTransactionRequest(transactionHash: String) =
-    JsonRequest("1.0", UUIDGenerator.get, "getrawtransaction", Json.arr(transactionHash, 1))
+  def listUnspentTransactions(minConfirmations: BigDecimal, maxConfirmations: BigDecimal, addresses: Seq[String] = Seq.empty[String]) = {
+    val params =
+      if (addresses.isEmpty) Json.arr(minConfirmations, maxConfirmations)
+      else Json.arr(minConfirmations, maxConfirmations, addresses)
+    JsonRequest("1.0", Utils.getUUID, "listunspent", params)
+  }
 
-  def newAddressRequest =
-    JsonRequest("1.0", UUIDGenerator.get, "getnewaddress", Json.arr())
+  def sendRawTransaction(signedTransaction: String) =
+    JsonRequest("1.0", Utils.getUUID, "sendrawtransaction", Json.arr(signedTransaction))
 
-  def walletPassPhraseRequest(walletPass: String) =
-    JsonRequest("1.0", UUIDGenerator.get, "walletpassphrase", Json.arr(walletPass, 5))
+  def signRawTransaction(transaction: String) =
+    JsonRequest("1.0", Utils.getUUID, "signrawtransaction", Json.arr(transaction))
+
+  def walletPassPhrase(walletPass: String, timeout: BigDecimal) =
+    JsonRequest("1.0", Utils.getUUID, "walletpassphrase", Json.arr(walletPass, timeout))
 }
 
 trait JsonMessage
@@ -75,7 +74,7 @@ object JsonImplicits {
   implicit val rawTransactionScriptPubKeyFormats = Json.format[ScriptPubKey]
   implicit val rawTransactionVInFormats = Json.format[VIn]
   implicit val rawTransactionVOutFormats = Json.format[VOut]
-  implicit val rawTransactionFormats = Json.format[GetRawTransactionResponse]
+  implicit val rawTransactionFormats = Json.format[RawTransaction]
 
   implicit val unspentTransactionFormats = Json.format[UnspentTransaction]
 

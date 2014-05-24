@@ -23,4 +23,4 @@ Usage
 License
 -------
 
-This project is licensed under the terms of the GPL v2 license.  The project is in ALPHA status, usage in a production environment is strongly discouraged.
+This project is licensed under the terms of the Apache License, Version 2.0.

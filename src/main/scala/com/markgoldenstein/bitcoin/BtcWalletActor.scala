@@ -1,18 +1,17 @@
 /*
- * This file is part of bitcoin-akka.  bitcoin-akka is free software: you can
- * redistribute it and/or modify it under the terms of the GNU General Public
- * License as published by the Free Software Foundation, version 2.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
- * details.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc., 51
- * Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
- *
  * Copyright 2014 Mark Goldenstein
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.markgoldenstein.bitcoin
@@ -31,7 +30,7 @@ import java.security.KeyStore
 import java.io.{FileInputStream, File}
 import javax.net.ssl.{SSLContext, TrustManagerFactory}
 import akka.actor.{Actor, ActorLogging, ReceiveTimeout}
-import akka.pattern.{ask, pipe}
+import akka.pattern.pipe
 import play.api.libs.json._
 import org.java_websocket.client.WebSocketClient
 import org.java_websocket.handshake.ServerHandshake
@@ -39,17 +38,13 @@ import org.java_websocket.drafts.{Draft, Draft_17}
 import com.markgoldenstein.bitcoin.messages.actor._
 import com.markgoldenstein.bitcoin.messages.json._
 import JsonImplicits._
-import akka.util.Timeout
 
-abstract class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: String, walletPass: String, keyStoreFile: String, keyStorePass: String) extends Actor with ActorLogging {
-  // we put the actual business logic for notification handling here
-  def handleMessage: Actor.Receive
-
-  // this handler is triggered on a successful connection to btcwallet
-  def onConnect(): Unit
+class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: String,
+                     keyStoreFile: String, keyStorePass: String,
+                     onConnect: () => Unit, handleNotification: Actor.Receive,
+                     timeout: FiniteDuration) extends Actor with ActorLogging {
 
   implicit val executionContext = context.dispatcher
-  implicit val timeout = Timeout(5 seconds)
 
   // this HashMap maps JSON RPC request IDs to the corresponding response promises
   // and a function that converts the JSON RPC response to the final actor response
@@ -86,31 +81,33 @@ abstract class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: St
         }
       })
 
-    case m@CreateRawTransactionRequest(inputs, receivers) =>
+    // do not log wallet pass
+    case m@WalletPassPhrase(walletPass, timeout) =>
+      log.debug("Actor Request\n{}", WalletPassPhrase("hidden", timeout).treeString)
+      request(JsonMessage.walletPassPhrase(walletPass, timeout))
+
+    case m: RequestMessage =>
       log.debug("Actor Request\n{}", m.treeString)
-      val resultFunc = (result: JsValue) => result.as[String]
-      request(JsonMessage.createRawTransactionRequest(inputs, receivers), resultFunc)
-    case m@SignRawTransactionRequest(transaction) =>
-      log.debug("Actor Request\n{}", m.treeString)
-      request(JsonMessage.walletPassPhraseRequest(walletPass))
-      val resultFunc = (result: JsValue) => Json.fromJson[SignedTransaction](result).get
-      request(JsonMessage.signRawTransactionRequest(transaction), resultFunc)
-    case m@SendRawTransactionRequest(signedTransaction) =>
-      log.debug("Actor Request\n{}", m.treeString)
-      val resultFunc = (result: JsValue) => result.as[String]
-      request(JsonMessage.sendRawTransactionRequest(signedTransaction), resultFunc)
-    case m@GetRawTransactionRequest(transactionHash) =>
-      log.debug("Actor Request\n{}", m.treeString)
-      val resultFunc = (result: JsValue) => Json.fromJson[GetRawTransactionResponse](result).get
-      request(JsonMessage.getRawTransactionRequest(transactionHash), resultFunc)
-    case m@GetUnspentTransactionsRequest =>
-      log.debug("Actor Request\n{}", m.treeString)
-      val resultFunc = (result: JsValue) => Json.fromJson[Seq[UnspentTransaction]](result).get
-      request(JsonMessage.listUnspentTransactionsRequest(minConfirmations = 0), resultFunc)
-    case m@CreateNewAddressRequest =>
-      log.debug("Actor Request\n{}", m.treeString)
-      val resultFunc = (result: JsValue) => result.as[String]
-      request(JsonMessage.newAddressRequest, resultFunc)
+      m match {
+      case m@CreateRawTransaction(inputs, receivers) =>
+        val resultFunc = (result: JsValue) => result.as[String]
+        request(JsonMessage.createRawTransaction(inputs, receivers), resultFunc)
+      case m@GetNewAddress =>
+        val resultFunc = (result: JsValue) => result.as[String]
+        request(JsonMessage.getNewAddress, resultFunc)
+      case m@GetRawTransaction(transactionHash) =>
+        val resultFunc = (result: JsValue) => Json.fromJson[RawTransaction](result).get
+        request(JsonMessage.getRawTransaction(transactionHash), resultFunc)
+      case m@ListUnspentTransactions(minConfirmations, maxConfirmations) =>
+        val resultFunc = (result: JsValue) => Json.fromJson[Seq[UnspentTransaction]](result).get
+        request(JsonMessage.listUnspentTransactions(minConfirmations, maxConfirmations), resultFunc)
+      case m@SendRawTransaction(signedTransaction) =>
+        val resultFunc = (result: JsValue) => result.as[String]
+        request(JsonMessage.sendRawTransaction(signedTransaction), resultFunc)
+      case m@SignRawTransaction(transaction) =>
+        val resultFunc = (result: JsValue) => Json.fromJson[SignedTransaction](result).get
+        request(JsonMessage.signRawTransaction(transaction), resultFunc)
+    }
 
     case RemoveRequest(id) => rpcRequests -= id
     case Disconnected =>
@@ -120,9 +117,9 @@ abstract class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: St
 
     case m: NotificationMessage =>
       log.debug("Actor Notification\n{}", m.treeString)
-      handleMessage.applyOrElse(m, unhandled)
+      handleNotification.applyOrElse(m, unhandled)
 
-    case m => handleMessage.applyOrElse(m, unhandled)
+    case m => handleNotification.applyOrElse(m, unhandled)
   }
 
   def handleJsonNotification: PartialFunction[JsonNotification, Unit] = {
@@ -130,7 +127,7 @@ abstract class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: St
     case JsonNotification(_, "newtx", params) =>
       Json.fromJson[TransactionNotification](params(1)).map(txNtfn =>
         if (txNtfn.category == "receive")
-          self ! ReceivedPaymentNotification(txNtfn.txid, txNtfn.address, txNtfn.amount, txNtfn.confirmations))
+          self ! ReceivedPayment(txNtfn.txid, txNtfn.address, txNtfn.amount, txNtfn.confirmations))
     case _ => // ignore
   }
 
@@ -183,7 +180,7 @@ abstract class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: St
       self ! Connected
     } else {
       log.info(s"Btcwallet not available: $websocketUri")
-      context.system.scheduler.scheduleOnce(5 seconds, self, ReceiveTimeout)
+      context.system.scheduler.scheduleOnce(timeout, self, ReceiveTimeout)
     }
   }
 
