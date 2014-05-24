@@ -83,7 +83,7 @@ class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: String,
 
     // do not log wallet pass
     case m@WalletPassPhrase(walletPass, timeout) =>
-      log.debug("Actor Request\n{}", WalletPassPhrase("hidden", timeout).treeString)
+      log.debug("Actor Request\n{}", m.copy(walletPass = "hidden").treeString)
       request(JsonMessage.walletPassPhrase(walletPass, timeout))
 
     case m: RequestMessage =>
@@ -141,7 +141,11 @@ class BtcWalletActor(websocketUri: String, rpcUser: String, rpcPass: String,
   // helper method for request handling, to be called from handleRequest
   // this variant is for commands with a response
   def request(request: JsonRequest, resultFunc: JsValue => AnyRef) {
-    log.info("Json Request\n{}", Json.prettyPrint(Json.toJson(request)))
+    if (request.method == "walletpassphrase") {
+      log.info("Json Request\n{}", Json.prettyPrint(Json.toJson(request.copy(params = Json.arr("hidden")))))
+    } else {
+      log.info("Json Request\n{}", Json.prettyPrint(Json.toJson(request)))
+    }
     val p = Promise[AnyRef]()
     val f = p.future
     rpcRequests += request.id ->(p, resultFunc)
