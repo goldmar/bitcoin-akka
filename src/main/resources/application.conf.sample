@@ -13,7 +13,7 @@
 # limitations under the License.
 
 btcwallet {
-  websocket-uri = "wss://localhost:18332/frontend"
+  websocket-uri = "wss://localhost:18332/ws"
   rpc-user = "rpcuser"
   rpc-pass = "rpcpass"
   wallet-pass = "walletpass"
