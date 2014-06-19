@@ -16,7 +16,7 @@ Usage
 * Clone the Java-WebSocket repository: `git clone https://github.com/TooTallNate/Java-WebSocket.git`.  Install the development snapshot to your local maven repository: `mvn install`.
 * Clone this repository: `git clone https://github.com/goldmar/bitcoin-akka.git`.
 * Configure your passwords in src/main/resources/application.conf.
-* Import your btcwallet certificate to keystore.jks: `keytool -keystore.jks -import -file ~/.btcwallet/rpc.cert -alias btcwallet.cert`.
+* Import your btcwallet certificate to keystore.jks: `keytool -keystore keystore.jks -import -file ~/.btcwallet/rpc.cert -alias btcwallet.cert`.
 * Run the project: `sbt run`.
 * Send some testnet coins to one of your addresses, and watch how they are automatically returned to the sender address.
 
