@@ -16,9 +16,9 @@
 
 package com.markgoldenstein.bitcoin.messages.json
 
+import scala.language.implicitConversions
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
-import scala.language.implicitConversions
 import com.markgoldenstein.bitcoin.messages.Utils
 
 object JsonMessage {
@@ -34,9 +34,11 @@ object JsonMessage {
     JsonRequest("1.0", Utils.getUUID, "getrawtransaction", Json.arr(transactionHash, 1))
 
   def listUnspentTransactions(minConfirmations: BigDecimal, maxConfirmations: BigDecimal, addresses: Seq[String] = Seq.empty[String]) = {
-    val params =
-      if (addresses.isEmpty) Json.arr(minConfirmations, maxConfirmations)
-      else Json.arr(minConfirmations, maxConfirmations, addresses)
+    val params = if (addresses.isEmpty)
+      Json.arr(minConfirmations, maxConfirmations)
+    else
+      Json.arr(minConfirmations, maxConfirmations, addresses)
+
     JsonRequest("1.0", Utils.getUUID, "listunspent", params)
   }
 

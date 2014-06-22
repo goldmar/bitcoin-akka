@@ -16,7 +16,6 @@
 
 package com.markgoldenstein.bitcoin
 
-import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import akka.actor.{Actor, Props, TypedActor}
 import akka.pattern.ask
@@ -24,43 +23,48 @@ import akka.util.Timeout
 import com.markgoldenstein.bitcoin.messages.actor._
 import com.markgoldenstein.bitcoin.messages.json._
 
-class BtcWalletImpl(websocketUri: String, rpcUser: String, rpcPass: String,
-                    keyStoreFile: String, keyStorePass: String,
-                    onConnect: () => Unit, handleNotification: Actor.Receive,
-                    timeoutDuration: FiniteDuration) extends BtcWallet {
+class BtcWalletImpl(
+    websocketUri: String,
+    rpcUser: String,
+    rpcPass: String,
+    keyStoreFile: String,
+    keyStorePass: String,
+    onConnect: () => Unit,
+    handleNotification: Actor.Receive,
+    timeoutDuration: FiniteDuration)
+  extends BtcWallet {
 
   implicit val timeout = Timeout(timeoutDuration)
 
   val actor = TypedActor.context.actorOf(Props(
     new BtcWalletActor(
-      websocketUri, rpcUser, rpcPass, keyStoreFile, keyStorePass, onConnect, handleNotification, timeoutDuration
-    )))
+      websocketUri,
+      rpcUser,
+      rpcPass,
+      keyStoreFile,
+      keyStorePass,
+      onConnect,
+      handleNotification,
+      timeoutDuration)))
 
-  override def createRawTransaction(inputs: Seq[(String, BigDecimal)], receivers: Seq[(String, BigDecimal)]) = {
+  override def createRawTransaction(inputs: Seq[(String, BigDecimal)], receivers: Seq[(String, BigDecimal)]) =
     (actor ? CreateRawTransaction(inputs, receivers)).mapTo[String]
-  }
 
-  override def listUnspentTransactions(minConfirmations: BigDecimal = 1, maxConfirmations: BigDecimal = 999999) = {
-    (actor ? ListUnspentTransactions(minConfirmations, maxConfirmations)).mapTo[Seq[UnspentTransaction]]
-  }
-
-  override def sendRawTransaction(signedTransaction: String) = {
-    (actor ? SendRawTransaction(signedTransaction)).mapTo[String]
-  }
-
-  override def getNewAddress(): Future[String] = {
+  override def getNewAddress() =
     (actor ? GetNewAddress).mapTo[String]
-  }
 
-  override def walletPassPhrase(walletPass: String, timeout: BigDecimal) {
-    (actor ! WalletPassPhrase(walletPass, timeout))
-  }
-
-  override def getRawTransaction(transactionHash: String) = {
+  override def getRawTransaction(transactionHash: String) =
     (actor ? GetRawTransaction(transactionHash)).mapTo[RawTransaction]
-  }
 
-  override def signRawTransaction(transaction: String): Future[SignedTransaction] = {
+  override def listUnspentTransactions(minConfirmations: BigDecimal, maxConfirmations: BigDecimal) =
+    (actor ? ListUnspentTransactions(minConfirmations, maxConfirmations)).mapTo[Seq[UnspentTransaction]]
+
+  override def sendRawTransaction(signedTransaction: String) =
+    (actor ? SendRawTransaction(signedTransaction)).mapTo[String]
+
+  override def signRawTransaction(transaction: String) =
     (actor ? SignRawTransaction(transaction)).mapTo[SignedTransaction]
-  }
+
+  override def walletPassPhrase(walletPass: String, timeout: BigDecimal) =
+    (actor ! WalletPassPhrase(walletPass, timeout))
 }

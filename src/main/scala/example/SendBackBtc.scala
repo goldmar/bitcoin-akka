@@ -47,15 +47,21 @@ object SendBackBtc extends App {
       TypedProps(
         classOf[BtcWallet],
         new BtcWalletImpl(
-          websocketUri, rpcUser, rpcPass, keyStoreFile, keyStorePass, onConnect, handleNotification, timeout.duration
-        )), "btcwallet")
+          websocketUri,
+          rpcUser,
+          rpcPass,
+          keyStoreFile,
+          keyStorePass,
+          onConnect,
+          handleNotification,
+          timeout.duration)),
+      "btcwallet")
 
-  def onConnect() {
+  def onConnect(): Unit = {
     // ask about unspent transactions and process them
     btcWallet.listUnspentTransactions(minConfirmations = 0) onSuccess {
       case listOfUnspentTransactions =>
-        for (tx <- listOfUnspentTransactions)
-          processTransaction(tx.txid, tx.address, tx.amount)
+        listOfUnspentTransactions foreach (tx => processTransaction(tx.txid, tx.address, tx.amount))
     }
   }
 
@@ -65,9 +71,9 @@ object SendBackBtc extends App {
   }
 
   // process the transaction by sending the bitcoins back
-  def processTransaction(txId: String, address: String, amount: BigDecimal) {
+  def processTransaction(txId: String, address: String, amount: BigDecimal): Unit = {
     for {
-    // request the relevant raw transaction
+      // request the relevant raw transaction
       tx <- btcWallet.getRawTransaction(txId)
       // request the previous transaction for the first input (to get the sender address)
       prevTx <- btcWallet.getRawTransaction(tx.vin(0).txid)
@@ -75,10 +81,8 @@ object SendBackBtc extends App {
       // get the sender address
       val senderAddress = prevTx.vout(tx.vin(0).vout).scriptPubKey.addresses(0)
       // get a list of outputs that send something to the given address
-      val listOfTxOuts =
-        for (txOut <- tx.vout
-             if (txOut.scriptPubKey.`type` == "pubkeyhash" && address == txOut.scriptPubKey.addresses(0))
-        ) yield txOut
+      val listOfTxOuts = tx.vout filter (txOut =>
+        txOut.scriptPubKey.`type` == "pubkeyhash" && address == txOut.scriptPubKey.addresses(0))
 
       // send it back (using the correct outputs)
       val inputs = for (out <- listOfTxOuts.map(_.n)) yield txId -> out

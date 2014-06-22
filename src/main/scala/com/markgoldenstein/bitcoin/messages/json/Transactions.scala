@@ -16,11 +16,7 @@
 
 package com.markgoldenstein.bitcoin.messages.json
 
-import com.markgoldenstein.bitcoin.messages.actor._
-import com.markgoldenstein.bitcoin.messages.json._
-
 case class TransactionNotification(txid: String, account: String, address: String, category: String, amount: BigDecimal, confirmations: BigDecimal, timereceived: BigDecimal)
-
 
 case class RawTransaction(hex: String, txid: String, version: BigDecimal, locktime: BigDecimal, vin: Seq[VIn], vout: Seq[VOut])
 
@@ -31,7 +27,6 @@ case class VOut(value: BigDecimal, n: BigDecimal, scriptPubKey: ScriptPubKey)
 case class ScriptSig(asm: String, hex: String)
 
 case class ScriptPubKey(asm: String, hex: String, reqSigs: BigDecimal, `type`: String, addresses: Seq[String])
-
 
 case class UnspentTransaction(txid: String, account: String, address: String, amount: BigDecimal, confirmations: BigDecimal)
 

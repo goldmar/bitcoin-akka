@@ -16,16 +16,13 @@
 
 package com.markgoldenstein.bitcoin.messages.actor
 
-import com.markgoldenstein.bitcoin.messages.json.{UnspentTransaction, JsonResponse}
-
+import com.markgoldenstein.bitcoin.messages.json.JsonResponse
 
 trait ActorMessage
-
 
 sealed trait NotificationMessage extends ActorMessage
 
 case class ReceivedPayment(txId: String, address: String, amount: BigDecimal, confirmations: BigDecimal) extends NotificationMessage
-
 
 sealed trait RequestMessage extends ActorMessage
 
@@ -42,7 +39,6 @@ case class SendRawTransaction(signedTransaction: String) extends RequestMessage
 case class SignRawTransaction(transaction: String) extends RequestMessage
 
 case class WalletPassPhrase(walletPass: String, timeout: BigDecimal) extends RequestMessage
-
 
 case class CompleteRequest(response: JsonResponse)
 
