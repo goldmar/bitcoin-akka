@@ -5,7 +5,7 @@ bitcoin-akka demonstrates the processing of bitcoin transactions using the Actor
 
 Usually, it's inconvenient to use websocket or json APIs directly.  bitcoin-akka is an abstraction to btcwallet's websocket API.  You can talk to bitcoin-akka using Actor messages and receive Futures in return.  Those messages are then forwarded to btcwallet using its websocket API.  When a response is available the Future is completed.
 
-The project contains [an example](https://github.com/goldmar/bitcoin-akka/blob/master/src/main/scala/example/SendBackBtc.scala) in which transactions are processed by sending the bitcoins back to the sender address.  The outputs of the incoming transactions are used as outputs for the corresponding outgoing transactions. Therefore, there is no need to wait for confirmations.
+The project contains [an example](https://github.com/goldmar/bitcoin-akka/blob/master/src/main/scala/example/SendBackBtc.scala) in which transactions are processed by sending the bitcoins back to the sender address.  The outputs of the incoming transactions are used as inputs for the corresponding outgoing transactions. Therefore, there is no need to wait for confirmations.
 
 Usage
 -----
