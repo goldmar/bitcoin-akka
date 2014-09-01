@@ -7,7 +7,7 @@ organization := "com.markgoldenstein"
 
 version := "0.1-SNAPSHOT"
 
-scalaVersion := "2.10.4"
+scalaVersion := "2.11.2"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-feature", "-encoding", "utf8")
 
@@ -17,10 +17,9 @@ resolvers ++= Seq(
 )
 
 libraryDependencies ++= {
-  val akkaV = "2.3.1"
   Seq(
-    "com.typesafe.akka" %% "akka-remote" % akkaV,
-    "com.typesafe.play" %% "play-json" % "2.2.2",
+    "com.typesafe.akka" %% "akka-remote" % "2.3.5",
+    "com.typesafe.play" %% "play-json" % "2.3.4",
     "com.github.nikita-volkov" % "sext" % "0.2.3",
     "org.java-websocket" % "Java-WebSocket" % "1.3.1-SNAPSHOT"
   )
