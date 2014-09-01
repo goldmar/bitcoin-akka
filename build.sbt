@@ -20,10 +20,8 @@ libraryDependencies ++= {
   val akkaV = "2.3.1"
   Seq(
     "com.typesafe.akka" %% "akka-remote" % akkaV,
-    "com.typesafe.akka" %% "akka-testkit" % akkaV % "test",
     "com.typesafe.play" %% "play-json" % "2.2.2",
     "com.github.nikita-volkov" % "sext" % "0.2.3",
-    "net.debasishg" % "redisclient_2.10" % "2.12",
     "org.java-websocket" % "Java-WebSocket" % "1.3.1-SNAPSHOT"
   )
 }
